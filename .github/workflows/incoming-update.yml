@@ -1,0 +1,117 @@
+name: Incoming update
+
+# Drop ONE .zip of the whole project into incoming/ and push (or upload it from the GitHub web UI / phone).
+# The archive is unpacked safely, verified (tests + build check), then it REPLACES the project files.
+# Never touched: .git, .github, incoming. Afterwards a tag v<VERSION> is created and a GitHub Release is published.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "incoming/*.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: incoming-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Verify archive and update project
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.commit.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Locate the archive
+        id: find
+        run: |
+          shopt -s nullglob
+          zips=(incoming/*.zip)
+          if [ "${#zips[@]}" -eq 0 ]; then
+            echo "Nothing to do: no .zip in incoming/"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${#zips[@]}" -gt 1 ]; then
+            echo "::error::Put exactly ONE .zip in incoming/ (found ${#zips[@]})."
+            exit 1
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "zip=${zips[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Unpack safely
+        id: extract
+        if: steps.find.outputs.found == 'true'
+        run: |
+          root="$(python3 .github/scripts/safe_extract.py "${{ steps.find.outputs.zip }}" "$RUNNER_TEMP/staging")"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+          version="$(tr -d '[:space:]' < "$root/VERSION")"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}([-+][0-9A-Za-z.]+)?$'; then
+            echo "::error::VERSION file contains '$version' - expected something like 1.2.3"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.find.outputs.found == 'true'
+        with:
+          node-version: "22"
+
+      - name: Verification build (tests + index.html up to date)
+        if: steps.find.outputs.found == 'true'
+        working-directory: ${{ steps.extract.outputs.root }}
+        run: |
+          npm test
+          npm run check
+
+      - name: Replace project files
+        if: steps.find.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          # 1. delete every tracked file except the protected folders
+          git ls-files -z | { grep -zvE '^(\.github/|incoming/)' || true; } | xargs -0 -r git rm -q -f --
+          # 2. copy the verified project in (the archive can never carry .git, .github or incoming)
+          rsync -a "${{ steps.extract.outputs.root }}/" ./
+          # 3. consume the archive
+          rm -f "${{ steps.find.outputs.zip }}"
+          mkdir -p incoming && touch incoming/.gitkeep
+
+      - name: Commit, tag and push
+        id: commit
+        if: steps.find.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          version="${{ steps.extract.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The archive contains no changes."
+            exit 0
+          fi
+          git commit -q -m "chore: update project to v${version} from incoming archive"
+          git push origin HEAD:${{ github.ref_name }}
+          if git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
+            echo "::warning::Tag v${version} already exists - bump VERSION to publish a new release."
+          else
+            git tag -a "v${version}" -m "GitHub Releases Explorer v${version}"
+            git push origin "v${version}"
+            echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Publish release
+    needs: update
+    if: needs.update.outputs.tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.update.outputs.tag }}
