@@ -1,0 +1,75 @@
+:root {
+  --bg:#f3f5f9; --surface:#fff; --alt:#f8fafd; --border:#d6dde8; --text:#1b2433; --muted:#5f6f86;
+  --accent:#2f6fed; --accent-h:#245ed0; --on-accent:#fff; --header:#e9eef7; --hover:#edf2fb; --sel:#dce8ff;
+  --on-sel:#0e2a5e; --scroll:#c4ccda; --danger:#c62828; --shadow:0 6px 24px rgba(20,30,60,.14);
+}
+:root[data-theme="dark"] {
+  --bg:#0e131b; --surface:#161c27; --alt:#192030; --border:#2a3446; --text:#e6eaf2; --muted:#8e9cb2;
+  --accent:#5b9bff; --accent-h:#78aeff; --on-accent:#0b1220; --header:#1d2535; --hover:#202a3b; --sel:#27426e;
+  --on-sel:#fff; --scroll:#33405a; --danger:#ff6b6b; --shadow:0 6px 24px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+* { box-sizing:border-box; }
+html,body { height:100%; margin:0; }
+body { display:flex; flex-direction:column; gap:12px; padding:16px 20px 8px; background:var(--bg); color:var(--text);
+  font:13px/1.4 "Segoe UI",Inter,"Noto Sans",system-ui,sans-serif; }
+header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+header .titles { flex:1; min-width:240px; }
+h1 { margin:0; font-size:22px; font-weight:700; }
+.muted { color:var(--muted); }
+button, select, input[type=search], input[type=text], input[type=password] { font:inherit; color:inherit; }
+button { background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:7px 14px; font-weight:600; cursor:pointer; }
+button:hover { background:var(--hover); }
+button:disabled { opacity:.5; cursor:default; }
+button.primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+button.primary:hover { background:var(--accent-h); }
+button.ghost { background:transparent; border-color:transparent; color:var(--accent); }
+button.ghost:hover { background:var(--hover); }
+:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+input[type=search], input[type=text], input[type=password], select { background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:6px 10px; min-height:32px; }
+input[type=search] { flex:1; min-width:220px; }
+select { flex:1 1 130px; min-width:120px; cursor:pointer; }
+select.active { border-color:var(--accent); background:var(--sel); color:var(--on-sel); }
+label.check { display:flex; align-items:center; gap:7px; cursor:pointer; user-select:none; }
+input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; }
+.menu { position:relative; }
+.menu summary { list-style:none; } .menu summary::-webkit-details-marker { display:none; }
+.menu summary.btn { background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:7px 14px; font-weight:600; cursor:pointer; }
+.menu summary.btn:hover { background:var(--hover); }
+.menu .pop { position:absolute; right:0; top:calc(100% + 6px); z-index:30; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px; min-width:210px; box-shadow:var(--shadow); }
+.menu .pop button { display:block; width:100%; text-align:left; border:0; background:transparent; font-weight:500; padding:8px 12px; }
+.menu .pop button:hover { background:var(--sel); color:var(--on-sel); }
+.tablewrap { flex:1; min-height:200px; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:10px; position:relative; }
+table { border-collapse:separate; border-spacing:0; table-layout:fixed; }
+th, td { height:34px; padding:0 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+thead th { position:sticky; top:0; z-index:3; background:var(--header); font-weight:700; border-bottom:1px solid var(--border); border-right:1px solid var(--border); cursor:pointer; user-select:none; }
+thead th:hover { background:var(--hover); }
+thead th .arrow { color:var(--accent); margin-left:4px; }
+tbody tr:nth-child(even) td { background:var(--alt); }
+tbody tr:hover td { background:var(--hover); }
+tbody tr.sel td { background:var(--sel); color:var(--on-sel); }
+td.num { text-align:right; }
+th.act, td.act { position:sticky; left:0; z-index:2; width:78px; background:var(--surface); text-align:center; padding:0 4px; }
+thead th.act { z-index:4; background:var(--header); cursor:default; }
+tbody tr:nth-child(even) td.act { background:var(--alt); } tbody tr:hover td.act { background:var(--hover); } tbody tr.sel td.act { background:var(--sel); }
+td.act a, td.act button { display:inline-block; border:0; background:transparent; color:var(--accent); font-size:15px; padding:3px 6px; border-radius:6px; text-decoration:none; cursor:pointer; }
+td.act a:hover, td.act button:hover { background:var(--border); }
+.empty { padding:60px 20px; text-align:center; color:var(--muted); }
+footer { display:flex; align-items:center; gap:12px; color:var(--muted); min-height:24px; flex-wrap:wrap; }
+footer .grow { flex:1; min-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+footer .count { font-weight:600; }
+progress { width:180px; height:8px; accent-color:var(--accent); }
+progress[hidden] { display:none; }
+dialog { background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:12px; padding:20px; width:min(480px,92vw); box-shadow:var(--shadow); }
+dialog::backdrop { background:rgba(0,0,0,.45); }
+dialog h2 { margin:0 0 14px; font-size:17px; }
+dialog .field { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+dialog .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+a { color:var(--accent); }
+::-webkit-scrollbar { width:12px; height:12px; } ::-webkit-scrollbar-thumb { background:var(--scroll); border-radius:8px; border:3px solid transparent; background-clip:content-box; }
+::-webkit-scrollbar-thumb:hover { background:var(--muted); background-clip:content-box; border:3px solid transparent; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+dialog .field select, dialog .field input { flex:none; width:100%; }
+dialog code { background:var(--header); padding:1px 5px; border-radius:4px; font-size:12px; }
