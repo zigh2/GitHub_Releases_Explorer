@@ -4,3 +4,6 @@ Thumbs.db
 .idea/
 .vscode/
 github_releases_*.*
+__pycache__/
+*.pyc
+_site/

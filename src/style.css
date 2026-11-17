@@ -73,3 +73,37 @@ a { color:var(--accent); }
 .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 dialog .field select, dialog .field input { flex:none; width:100%; }
 dialog code { background:var(--header); padding:1px 5px; border-radius:4px; font-size:12px; }
+
+/* menus: views & columns */
+.menu .pop.wide { min-width:300px; }
+.menu .pop .scroll { max-height:320px; overflow:auto; }
+.menu .pop label.item { display:flex; padding:6px 10px; border-radius:5px; cursor:pointer; }
+.menu .pop label.item:hover { background:var(--hover); }
+.menu .pop .foot, .menu .pop .save { display:flex; gap:6px; justify-content:space-between; border-top:1px solid var(--border); margin-top:6px; padding-top:6px; }
+.menu .pop .foot button, .menu .pop .save button { display:inline-block; width:auto; padding:6px 12px; font-weight:600; text-align:center; }
+.menu .pop .save input { flex:1; min-width:0; }
+.viewrow { display:flex; align-items:center; }
+.viewrow button:first-child { flex:1; }
+.viewrow button.x { width:auto; flex:none; color:var(--muted); padding:8px 10px; }
+.menu .pop .sep { height:1px; background:var(--border); margin:6px 4px; }
+/* column resize grip */
+th { position:sticky; }
+.grip { position:absolute; right:0; top:0; bottom:0; width:9px; cursor:col-resize; touch-action:none; }
+.grip:hover, .grip.drag { background:var(--accent); opacity:.45; }
+/* new releases */
+.banner { display:flex; align-items:center; gap:8px; background:var(--sel); color:var(--on-sel); border:1px solid var(--accent); border-radius:10px; padding:7px 14px; font-weight:600; }
+.banner[hidden] { display:none; }
+.banner .grow { flex:1; }
+.banner button { padding:4px 12px; }
+td.isnew::after { content:"NEW"; margin-left:8px; font-size:10px; font-weight:700; background:var(--accent); color:var(--on-accent); padding:1px 7px; border-radius:99px; vertical-align:1px; }
+/* release notes drawer */
+.notes { background:var(--surface); border:1px solid var(--border); border-radius:10px; }
+.notes > summary { padding:8px 14px; cursor:pointer; font-weight:600; user-select:none; }
+#notesBody { max-height:34vh; overflow:auto; padding:0 18px 12px; line-height:1.5; }
+#notesBody h3, #notesBody h4, #notesBody h5, #notesBody h6 { margin:14px 0 4px; font-size:14px; }
+#notesBody p { margin:6px 0; } #notesBody ul { margin:4px 0 8px; padding-left:22px; }
+#notesBody code { background:var(--header); padding:1px 5px; border-radius:4px; font-size:12px; }
+#notesBody pre { background:var(--header); padding:10px; border-radius:8px; overflow:auto; } #notesBody pre code { background:none; padding:0; }
+#notesBody blockquote { margin:6px 0; padding-left:12px; border-left:3px solid var(--border); color:var(--muted); }
+#notesBody .notehead { padding:2px 0 6px; }
+dialog .actions .ghost { padding:7px 10px; }

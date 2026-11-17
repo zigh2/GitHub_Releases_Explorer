@@ -8,7 +8,7 @@ platform, and how do I get them into a spreadsheet?"** Other tools answer neighb
 
 | | Form | Scope | What you get | Classifies files (OS / arch / package type) | Table export | Install |
 |---|---|---|---|---|---|---|
-| **GitHub Releases Explorer** | one HTML file (~50 KB) | **many repos at once**: an organization, a user, or an explicit `owner/repo` list | one row per release **asset**, filters, search, sort | **yes**, from file names | **XLSX, CSV, JSON** | none |
+| **GitHub Releases Explorer** | one HTML file (~75 KB, 23 KB gzipped) | **many repos at once**: an organization, a user, or an explicit `owner/repo` list | one row per release **asset**, filters, search, sort | **yes**, from file names | **XLSX, CSV, JSON** | none |
 | [`gh release`](https://man.archlinux.org/man/gh-release-download.1.en) (GitHub CLI) | official CLI | one repository (`-R owner/repo`) | list releases, view, **download by glob pattern**, create/edit/upload | no (you write the pattern) | scripting only | install `gh` |
 | [eget](https://github.com/zyedidia/eget) | CLI | one repository per run | finds and downloads/extracts a **prebuilt binary** for your system | detects for *installing*, not for browsing | no | single binary |
 | [brows](https://x-cmd.com/install/brows) | terminal UI | one repository | two-pane list of releases and assets, Enter to download | no | no | install via x-cmd / brew |

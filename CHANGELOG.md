@@ -2,6 +2,25 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) · versioning: [SemVer](https://semver.org/).
 
+## [3.1.0] - 2026-11-17
+
+### Added
+- **Download counts** (`Downloads` column, numeric sort, in every export).
+- **Columns menu** (show / hide, reset), **draggable column borders**, and **double-click to fit all columns to their content** except SHA256; remembered.
+- **Saved views**: built-in presets (Windows x64 installers, Linux packages, macOS, Everything) and your own named views.
+- **What's new**: banner with the number of releases published since you last marked things as seen, `NEW` badges, *Show only new*, *Mark all as seen*.
+- **Release notes panel** (collapsed by default) with a small, safe Markdown renderer (no HTML injection, https links only).
+- **`catalog.json` snapshot** (`scripts/snapshot.mjs`, `snapshot.config.json`) published with the app on GitHub Pages; the page uses it when its settings match, with zero API calls.
+- **Pages workflow** (`pages.yml`): deploys on every change and every 6 hours; also called by *Incoming update*.
+- **Playwright UI tests** (`tests/e2e/`, 12 scenarios) and an `e2e` job in CI.
+- `docs/ARCHITECTURE.md`.
+
+### Changed
+- The catalog and the HTTP cache moved from `localStorage` to **IndexedDB** (no 5 MB ceiling; 15,000 rows tested).
+- **Conditional requests (`ETag`)**: unchanged resources are answered by free `304`s; the status line reports them.
+- Repositories are scanned **6 in parallel**, and the latest-release lookup asks for a small page instead of 100 releases.
+- Sorting / filtering paints synchronously (no blank frame); `Settings` gained *Clear cache*.
+
 ## [3.0.0] - 2026-11-14
 
 ### Changed (breaking)

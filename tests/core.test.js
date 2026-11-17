@@ -216,3 +216,75 @@ test("an unknown source is reported but does not hide the others", async () => {
 test("fetchCatalog requires a source", async () => {
   await assert.rejects(run(undefined, {}, ""), /at least one/);
 });
+
+// ---- 3.1: downloads, notes, ETag, concurrency, snapshot ------------------------------------------------------------
+test("download counts and release notes are captured", async () => {
+  const res = await run(undefined, { includeAggregate: false });
+  const exe = res.rows.find((r) => r.file_name.endsWith("x64-setup.exe"));
+  assert.equal(exe.downloads, 3); // fake: id 1 * 3
+  assert.equal(res.releases[C.releaseKey(exe)].body, "Notes for artcraft-v0.41.1");
+  assert.ok(Object.keys(res.releases).every((k) => res.rows.some((r) => C.releaseKey(r) === k))); // no orphan notes
+});
+
+test("long release notes are truncated", async () => {
+  const routes = F.sampleRoutes();
+  routes["/repos/storytold/anicraft/releases"][0].body = "x".repeat(50000);
+  const res = await run(routes, { includeAggregate: false });
+  assert.ok(Object.values(res.releases).every((n) => n.body.length <= 6000));
+});
+
+test("conditional requests: a second refresh is answered by 304s from the cache", async () => {
+  const fetchImpl = F.withEtags(F.createFetch(F.sampleRoutes()));
+  const store = new Map();
+  const cache = { get: (u) => store.get(u), set: (u, v) => store.set(u, v) };
+  const go = async () => {
+    const client = C.createClient({ fetchImpl, backoffMs: 0, cache });
+    const res = await C.fetchCatalog(client, "storytold", { keyword: "craft", aggregates: C.DEFAULT_AGGREGATES });
+    return { res, stats: client.stats };
+  };
+  const first = await go();
+  assert.equal(first.stats.notModified, 0);
+  const second = await go();
+  assert.equal(second.stats.notModified, second.stats.requests - 0); // every request was a free 304 (repos 404s aside)
+  assert.deepEqual(second.res.rows, first.res.rows);
+});
+
+test("work is parallel but bounded, and result order is deterministic", async () => {
+  const routes = F.sampleRoutes();
+  routes["/orgs/storytold/repos"] = Array.from({ length: 20 }, (_, i) => F.repo("storytold", `r${String(i).padStart(2, "0")}craft`));
+  for (let i = 0; i < 20; i++) routes[`/repos/storytold/r${String(i).padStart(2, "0")}craft/releases`] = [F.release(i + 1, "v1.0.0", "2026-11-01T00:00:00Z", [F.asset(i + 100, `r${i}craft-1.0.0-linux-x86_64.deb`)])];
+  let inFlight = 0, peak = 0;
+  const base = F.createFetch(routes);
+  const slow = async (u, init) => { inFlight++; peak = Math.max(peak, inFlight); await new Promise((r) => setTimeout(r, 5)); inFlight--; return base(u, init); };
+  const client = C.createClient({ fetchImpl: slow, backoffMs: 0 });
+  const res = await C.fetchCatalog(client, "storytold", { keyword: "craft", concurrency: 4 });
+  assert.ok(peak > 1 && peak <= 4, "peak " + peak);
+  assert.deepEqual(res.rows.map((r) => r.repository), [...res.rows.map((r) => r.repository)].sort());
+});
+
+test("pool stops on the first error", async () => {
+  let started = 0;
+  await assert.rejects(C.pool([1, 2, 3, 4, 5, 6], 2, async (n) => { started++; if (n === 2) throw new Error("boom"); await new Promise((r) => setTimeout(r, 5)); }), /boom/);
+  assert.ok(started < 6);
+});
+
+test("the latest-release lookup asks for a small page, not 100 releases", async () => {
+  const fetchImpl = F.createFetch(F.sampleRoutes());
+  const seen = [];
+  const spy = async (u, i) => { seen.push(u); return fetchImpl(u, i); };
+  await C.fetchCatalog(C.createClient({ fetchImpl: spy, backoffMs: 0 }), "storytold/anicraft", { depth: 1 });
+  assert.ok(seen.some((u) => /releases\?per_page=6/.test(u)), seen.join("\n"));
+});
+
+test("snapshot round-trips and its signature ignores formatting", async () => {
+  const res = await run();
+  const cfg = { sources: "storytold", keyword: "craft", aggregates: "Labtoso/Artcraft", depth: 1, archived: false };
+  const snap = JSON.parse(JSON.stringify(C.encodeSnapshot(res, cfg, "2026-11-15T00:00:00Z")));
+  const back = C.decodeSnapshot(snap);
+  assert.deepEqual(back.rows, res.rows.map((r) => Object.fromEntries(C.KEYS.map((k) => [k, r[k]]))));
+  assert.deepEqual(back.releases, res.releases);
+  assert.equal(snap.rows[0].length, C.KEYS.length); // compact: arrays, not objects
+  assert.equal(C.signature({ ...cfg, sources: " Storytold ,storytold/ " }), C.signature(cfg));
+  assert.notEqual(C.signature({ ...cfg, depth: 3 }), C.signature(cfg));
+  assert.equal(C.decodeSnapshot({ v: 2 }), null);
+});

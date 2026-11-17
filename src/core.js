@@ -15,6 +15,7 @@ const Core = (() => {
     { key: "variant", header: "Variant", width: 100 },
     { key: "file_name", header: "File Name", width: 400 },
     { key: "size_mb", header: "Size (MB)", width: 100, numeric: true },
+    { key: "downloads", header: "Downloads", width: 105, numeric: true },
     { key: "sha256", header: "SHA256", width: 150 },
     { key: "repository", header: "Repository", width: 200 },
     { key: "source", header: "Source", width: 100 },
@@ -128,13 +129,15 @@ const Core = (() => {
   // ---- GitHub client ---------------------------------------------------------------------------------------------
   const GITHUB_API = "https://api.github.com";
   const PER_PAGE = 100;
-  const EMBEDDED_ASSETS_SUSPECT = 30;
+  const EMBEDDED_ASSETS_SUSPECT = 100; // releases embed their assets (51 seen in practice); only a full page of 100 can be truncated
   class GitHubError extends Error { constructor(m) { super(m); this.name = "GitHubError"; } }
   class RateLimitError extends GitHubError { constructor(m) { super(m); this.name = "RateLimitError"; } }
   class NotFoundError extends GitHubError { constructor(m) { super(m); this.name = "NotFoundError"; } }
   class Cancelled extends Error { constructor() { super("Cancelled"); this.name = "Cancelled"; } }
 
-  function createClient({ fetchImpl, token = "", retries = 3, backoffMs = 1500, signal = null } = {}) {
+  /** cache (optional): { get(url) -> {etag, body} | undefined, set(url, {etag, body}) } - enables conditional requests (a 304 is free). */
+  function createClient({ fetchImpl, token = "", retries = 3, backoffMs = 1500, signal = null, cache = null } = {}) {
+    const stats = { requests: 0, notModified: 0 };
     const doFetch = fetchImpl || ((...a) => globalThis.fetch(...a));
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const headers = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
@@ -144,11 +147,15 @@ const Core = (() => {
       const u = new URL(url);
       for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
       let last = null;
+      const key = u.toString();
+      const hit = cache ? await cache.get(key) : null;
+      const reqHeaders = hit && hit.etag ? { ...headers, "If-None-Match": hit.etag } : headers;
       for (let attempt = 0; attempt < retries; attempt++) {
         if (signal && signal.aborted) throw new Cancelled();
         let res;
         try {
-          res = await doFetch(u.toString(), { headers, signal });
+          stats.requests++;
+          res = await doFetch(key, { headers: reqHeaders, signal });
         } catch (err) {
           if (err && err.name === "AbortError") throw new Cancelled();
           last = err;
@@ -156,6 +163,7 @@ const Core = (() => {
           continue;
         }
         const status = res.status;
+        if (status === 304 && hit) { stats.notModified++; return hit.body; }
         if ((status === 403 || status === 429) && res.headers.get("X-RateLimit-Remaining") === "0") {
           const reset = Number(res.headers.get("X-RateLimit-Reset"));
           const when = reset ? new Date(reset * 1000).toLocaleTimeString() : "later";
@@ -168,19 +176,22 @@ const Core = (() => {
           try { detail = (await res.json()).message || ""; } catch (_) { /* ignore */ }
           throw new GitHubError(`HTTP ${status} for ${url}` + (detail ? ": " + detail : ""));
         }
-        return res.json();
+        const body = await res.json();
+        const etag = res.headers.get("ETag");
+        if (cache && etag) await cache.set(key, { etag, body });
+        return body;
       }
       throw new GitHubError("Could not reach GitHub: " + (last && last.message ? last.message : last));
     }
 
-    async function paginate(url, params = {}, limit = null) {
+    async function paginate(url, params = {}, limit = null, perPage = PER_PAGE) {
       const items = [];
       for (let page = 1; ; page++) {
-        const batch = await get(url, { ...params, per_page: PER_PAGE, page });
+        const batch = await get(url, { ...params, per_page: perPage, page });
         if (!batch || !batch.length) break;
         items.push(...batch);
         if (limit !== null && items.length >= limit) return items.slice(0, limit);
-        if (batch.length < PER_PAGE) break;
+        if (batch.length < perPage) break;
       }
       return items;
     }
@@ -199,7 +210,8 @@ const Core = (() => {
 
     async function listReleases(fullName, count = 1) {
       count = Math.max(1, count);
-      const releases = await paginate(`${GITHUB_API}/repos/${fullName}/releases`, {}, count + 5);
+      const want = count + 5; // a little headroom for drafts; one small request instead of a 100-release page
+      const releases = await paginate(`${GITHUB_API}/repos/${fullName}/releases`, {}, want, Math.min(PER_PAGE, want));
       return releases.filter((r) => !r.draft).slice(0, count);
     }
 
@@ -211,7 +223,7 @@ const Core = (() => {
       }
       return assets;
     }
-    return { get, paginate, discoverRepositories, listReleases, allAssets };
+    return { get, paginate, discoverRepositories, listReleases, allAssets, stats };
   }
 
   // ---- rows & catalog --------------------------------------------------------------------------------------------
@@ -228,7 +240,7 @@ const Core = (() => {
         application: app, version: cleanVersion(tag), published, prerelease: release.prerelease ? "Yes" : "No",
         platform: c.platform, architecture: c.architecture, package_type: c.package_type, extension: c.extension,
         variant: c.variant, file_name: fileName, size_mb: Math.round(((asset.size || 0) / 1024 / 1024) * 100) / 100,
-        sha256: (asset.digest || "").replace("sha256:", ""), repository: repo.full_name, source,
+        downloads: asset.download_count || 0, sha256: (asset.digest || "").replace("sha256:", ""), repository: repo.full_name, source,
         download_url: asset.browser_download_url || "", release_url: release.html_url || "",
       };
     });
@@ -273,79 +285,120 @@ const Core = (() => {
     return { kept, dropped };
   }
 
+  const releaseKey = (row) => `${row.repository}@${row.version}`;
+  const NOTE_LIMIT = 6000;
+  const noteOf = (release) => ({
+    name: release.name || release.tag_name || "", body: String(release.body || "").slice(0, NOTE_LIMIT),
+    url: release.html_url || "", published: release.published_at || release.created_at || "", prerelease: !!release.prerelease,
+  });
+  const normSources = (text) => parseSources(text).map((e) => (e.repo ? `${e.owner}/${e.repo}` : e.owner)).join(",");
+  /** Stable identity of a configuration (used to decide whether a snapshot / cache answers the current settings). */
+  const signature = (c) => [normSources(c.sources), c.keyword || "", normSources(c.aggregates), c.depth || 1, c.archived ? 1 : 0].join("|").toLowerCase();
+
+  /** Runs fn over items with at most `limit` in flight; results keep input order; the first error stops scheduling. */
+  async function pool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0, failure = null;
+    const worker = async () => {
+      while (failure === null) {
+        const i = next++;
+        if (i >= items.length) return;
+        try { out[i] = await fn(items[i], i); } catch (e) { failure = e; return; }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    if (failure !== null) throw failure;
+    return out;
+  }
+  const isFatal = (err) => err instanceof RateLimitError || err instanceof Cancelled || !(err instanceof GitHubError);
+
   /**
    * sources: organisation / user names and/or owner/repo entries (array of parseSources() items, or a string).
    * keyword: only organisation/user repositories whose name contains it are scanned ("" = all). Direct owner/repo entries ignore it.
    * aggregates: repositories that mirror *other* applications' releases (application is inferred from file names).
+   * Returns { rows, releases (notes by releaseKey), errors, scanned, skippedDuplicates }.
    */
-  async function fetchCatalog(client, sources, { aggregates = [], depth = 1, keyword = "", includeArchived = false, onProgress = null, signal = null } = {}) {
+  async function fetchCatalog(client, sources, { aggregates = [], depth = 1, keyword = "", includeArchived = false, onProgress = null, signal = null, concurrency = 6 } = {}) {
     const check = () => { if (signal && signal.aborted) throw new Cancelled(); };
     const entries = typeof sources === "string" ? parseSources(sources) : sources;
     const aggList = (typeof aggregates === "string" ? parseSources(aggregates) : aggregates).filter((a) => a.repo);
     if (!entries.length) throw new GitHubError("Enter at least one organization, user or owner/repo in Settings.");
-    const result = { rows: [], errors: [], scanned: 0, skippedDuplicates: 0 };
+    const result = { rows: [], releases: {}, errors: [], scanned: 0, skippedDuplicates: 0 };
 
     const targets = new Map();
-    for (const entry of entries) {
+    const discovered = await pool(entries, concurrency, async (entry) => {
       check();
-      if (entry.repo) { targets.set(`${entry.owner}/${entry.repo}`.toLowerCase(), { name: entry.repo, full_name: `${entry.owner}/${entry.repo}` }); continue; }
-      try {
-        for (const r of await client.discoverRepositories(entry.owner, keyword, includeArchived)) targets.set(r.full_name.toLowerCase(), r);
-      } catch (err) {
-        if (err instanceof RateLimitError || err instanceof Cancelled) throw err;
-        if (!(err instanceof GitHubError)) throw err;
-        result.errors.push(`${entry.owner}: ${err.message}`);
-      }
-    }
+      if (entry.repo) return { repos: [{ name: entry.repo, full_name: `${entry.owner}/${entry.repo}` }] };
+      try { return { repos: await client.discoverRepositories(entry.owner, keyword, includeArchived) }; }
+      catch (err) { if (isFatal(err)) throw err; return { error: `${entry.owner}: ${err.message}` }; }
+    });
+    for (const d of discovered) { if (d.error) result.errors.push(d.error); else for (const r of d.repos) targets.set(r.full_name.toLowerCase(), r); }
     const aggKeys = new Set(aggList.map((a) => `${a.owner}/${a.repo}`.toLowerCase()));
     const list = [...targets.entries()].filter(([k]) => !aggKeys.has(k)).map(([, r]) => r);
     if (!list.length && !aggList.length && !result.errors.length) throw new GitHubError(`No public repositories${keyword ? ` containing '${keyword}'` : ""} were found.`);
     const total = list.length + aggList.length;
     let done = 0;
-    const orgRows = [];
+    const notes = {};
 
-    for (const repo of list) {
+    const scanned = await pool(list, concurrency, async (repo) => {
       check();
+      const rows = [];
+      let error = null;
       try {
         for (const release of await client.listReleases(repo.full_name, depth)) {
-          orgRows.push(...buildRows(repo, release, await client.allAssets(repo.full_name, release)));
+          const built = buildRows(repo, release, await client.allAssets(repo.full_name, release));
+          rows.push(...built);
+          if (built.length) notes[releaseKey(built[0])] = noteOf(release);
         }
-      } catch (err) {
-        if (err instanceof RateLimitError || err instanceof Cancelled) throw err;
-        if (!(err instanceof GitHubError)) throw err;
-        result.errors.push(`${repo.full_name}: ${err.message}`);
-      }
+      } catch (err) { if (isFatal(err)) throw err; error = `${repo.full_name}: ${err.message}`; }
       onProgress && onProgress(++done, total, repo.full_name);
-    }
+      return { rows, error };
+    });
+    const orgRows = [];
+    for (const r of scanned) { orgRows.push(...r.rows); if (r.error) result.errors.push(r.error); }
 
     const aggRows = [];
-    for (const agg of aggList) {
+    const aggScans = await pool(aggList, concurrency, async (agg) => {
       check();
       const full = `${agg.owner}/${agg.repo}`;
       const repo = { name: agg.repo, full_name: full };
+      const rows = [];
+      let error = null;
       try {
         const used = new Map();
         for (const release of await client.listReleases(full, AGGREGATE_SCAN_RELEASES)) {
-          const rows = buildRows(repo, release, await client.allAssets(full, release), { source: "Aggregate", inferAppFromAsset: true });
-          for (const app of [...new Set(rows.map((r) => r.application))].sort()) {
+          const built = buildRows(repo, release, await client.allAssets(full, release), { source: "Aggregate", inferAppFromAsset: true });
+          for (const app of [...new Set(built.map((r) => r.application))].sort()) {
             if ((used.get(app) || 0) >= depth) continue;
             used.set(app, (used.get(app) || 0) + 1);
-            aggRows.push(...rows.filter((r) => r.application === app));
+            rows.push(...built.filter((r) => r.application === app));
           }
+          if (built.length) notes[releaseKey(built[0])] = noteOf(release);
         }
-      } catch (err) {
-        if (err instanceof RateLimitError || err instanceof Cancelled) throw err;
-        if (!(err instanceof GitHubError)) throw err;
-        result.errors.push(`${full}: ${err.message}`);
-      }
+      } catch (err) { if (isFatal(err)) throw err; error = `${full}: ${err.message}`; }
       onProgress && onProgress(++done, total, full);
-    }
+      return { rows, error };
+    });
+    for (const r of aggScans) { aggRows.push(...r.rows); if (r.error) result.errors.push(r.error); }
+
     const { kept, dropped } = dedupeAggregate(orgRows, aggRows);
     result.rows = [...orgRows, ...kept];
+    for (const row of result.rows) { const k = releaseKey(row); if (notes[k]) result.releases[k] = notes[k]; }
     result.skippedDuplicates = dropped;
     result.scanned = total;
     if (!result.rows.length && result.errors.length) throw new GitHubError("No release assets were retrieved.\n" + result.errors.slice(0, 8).join("\n"));
     return result;
+  }
+
+  // ---- compact snapshot (catalog.json) ---------------------------------------------------------------------------
+  function encodeSnapshot(result, config, generatedAt = new Date().toISOString()) {
+    return { v: 1, generatedAt, config: { sources: normSources(config.sources), keyword: config.keyword || "", aggregates: normSources(config.aggregates),
+      depth: config.depth || 1, archived: !!config.archived }, keys: KEYS, rows: result.rows.map((r) => KEYS.map((k) => (r[k] === undefined ? "" : r[k]))),
+      releases: result.releases || {}, errors: result.errors || [] };
+  }
+  function decodeSnapshot(snap) {
+    if (!snap || snap.v !== 1 || !Array.isArray(snap.rows) || !Array.isArray(snap.keys)) return null;
+    return { generatedAt: snap.generatedAt, config: snap.config, rows: snap.rows.map((arr) => Object.fromEntries(snap.keys.map((k, i) => [k, arr[i]]))), releases: snap.releases || {} };
   }
 
   // ---- exports ---------------------------------------------------------------------------------------------------
@@ -430,7 +483,7 @@ const Core = (() => {
   return {
     COLUMNS, KEYS, HEADERS, FILTER_KEYS, NON_PACKAGE_TYPES, DEFAULT_SOURCE, DEFAULT_KEYWORD, DEFAULT_AGGREGATES,
     classify, extensionOf, appNameFromRepo, appNameFromAsset, cleanVersion, versionKey,
-    createClient, buildRows, fetchCatalog, dedupeAggregate, parseSources,
+    createClient, buildRows, fetchCatalog, dedupeAggregate, parseSources, releaseKey, signature, normSources, pool, encodeSnapshot, decodeSnapshot,
     GitHubError, RateLimitError, NotFoundError, Cancelled,
     toCSV, toJSON, toXLSX, crc32,
   };

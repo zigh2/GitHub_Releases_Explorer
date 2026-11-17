@@ -6,6 +6,7 @@ No dependencies, no install step - just Node 18+ for the tests and the build.
 npm test            # unit tests (fake GitHub API, exports, classification)
 node scripts/build.mjs   # regenerate index.html from src/
 npm run check       # fails if index.html is stale
+npm run e2e         # Playwright UI tests (pip install -r tests/e2e/requirements.txt; playwright install chromium)
 ```
 
 - Edit files in `src/` (`core.js` = logic without DOM, `app.js` = UI, `style.css`, `index.template.html`), never `index.html` by hand.

@@ -20,8 +20,8 @@ function createFetch(routes) {
   fn.calls = calls;
   return fn;
 }
-const asset = (id, name, size = 1024 * 1024) => ({ id, name, size, digest: "sha256:" + "ab".repeat(32), browser_download_url: `https://github.com/dl/${name}` });
-const release = (id, tag, published, assets, extra = {}) => ({ id, tag_name: tag, name: tag, published_at: published, prerelease: false, draft: false, assets, html_url: `https://github.com/rel/${tag}`, ...extra });
+const asset = (id, name, size = 1024 * 1024) => ({ id, name, size, download_count: id * 3, digest: "sha256:" + "ab".repeat(32), browser_download_url: `https://github.com/dl/${name}` });
+const release = (id, tag, published, assets, extra = {}) => ({ id, tag_name: tag, name: tag, published_at: published, prerelease: false, draft: false, assets, html_url: `https://github.com/rel/${tag}`, body: `Notes for ${tag}`, ...extra });
 const repo = (owner, name, archived = false) => ({ name, full_name: `${owner}/${name}`, archived });
 
 function sampleRoutes() {
@@ -42,4 +42,20 @@ function sampleRoutes() {
     ],
   };
 }
-module.exports = { response, createFetch, asset, release, repo, sampleRoutes };
+/** Wraps a fetch with ETag / 304 behaviour like the real API. fn.stats counts 200s and 304s. */
+function withEtags(base) {
+  const fn = async (url, init = {}) => {
+    const res = await base(url, init);
+    if (res.status !== 200) return res;
+    const body = await res.json();
+    const etag = '"' + require("node:crypto").createHash("md5").update(JSON.stringify(body)).digest("hex") + '"';
+    const sent = init.headers && init.headers["If-None-Match"];
+    if (sent === etag) { fn.stats.n304++; return response(304, null, { ETag: etag }); }
+    fn.stats.n200++;
+    return response(200, body, { ETag: etag });
+  };
+  fn.stats = { n200: 0, n304: 0 };
+  fn.calls = base.calls;
+  return fn;
+}
+module.exports = { withEtags, response, createFetch, asset, release, repo, sampleRoutes };

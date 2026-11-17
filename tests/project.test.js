@@ -27,7 +27,7 @@ test("index.html ships a strict Content-Security-Policy", () => {
   const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html);
   assert.ok(csp, "CSP meta tag missing");
   assert.match(csp[1], /default-src 'none'/);
-  assert.match(csp[1], /connect-src https:\/\/api\.github\.com(;|$)/);
+  assert.match(csp[1], /connect-src 'self' https:\/\/api\.github\.com(;|$)/);
   assert.ok(!/unsafe-eval/.test(csp[1]));
 });
 

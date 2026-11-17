@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self' https://api.github.com; base-uri 'none'; form-action 'none'">
 <meta name="description" content="Browse, filter and export the release assets of any GitHub organization, user or repository. One small HTML file, no install.">
 <title>GitHub Releases Explorer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fed'/%3E%3Cpath d='M28 12h8v22h9L32 48 19 34h9z' fill='white'/%3E%3Crect x='16' y='50' width='32' height='4' rx='2' fill='white'/%3E%3C/svg%3E">
@@ -21,6 +21,20 @@
   </div>
   <button id="themeBtn" title="Switch between light and dark mode"></button>
   <button id="settingsBtn">Settings</button>
+  <details class="menu" id="viewsMenu">
+    <summary class="btn" title="Saved filter sets">Views ▾</summary>
+    <div class="pop wide">
+      <div id="viewsList"></div>
+      <div class="save"><input type="text" id="viewName" placeholder="Save current view as…" autocomplete="off" aria-label="View name"><button id="viewSave" class="primary">Save</button></div>
+    </div>
+  </details>
+  <details class="menu" id="colsMenu">
+    <summary class="btn" title="Choose the visible columns">Columns ▾</summary>
+    <div class="pop">
+      <div id="colsList" class="scroll"></div>
+      <div class="foot"><button id="colsFit" class="ghost" title="Fit every column to its content (except SHA256)">Fit to content</button><button id="colsReset" class="ghost">Reset</button></div>
+    </div>
+  </details>
   <details class="menu" id="exportMenu">
     <summary class="btn" title="Export the rows currently visible in the table">Export ▾</summary>
     <div class="pop">
@@ -41,7 +55,14 @@
   <div class="row" id="filters"></div>
 </section>
 
+<div class="banner" id="newbar" hidden><span id="newText"></span><span class="grow"></span><button id="newOnly">Show only new</button><button id="newSeen" class="ghost">Mark all as seen</button></div>
+
 <div class="tablewrap" id="wrap" tabindex="0" aria-label="Release assets"></div>
+
+<details class="notes" id="notes">
+  <summary>Release notes <span id="notesTitle" class="muted">— select a row</span></summary>
+  <div id="notesBody"></div>
+</details>
 
 <footer>
   <span class="grow" id="status">Ready</span>
@@ -67,7 +88,7 @@
   </div>
   <div class="field"><label for="token">Personal access token (optional)</label><input type="password" id="token" autocomplete="off" placeholder="Raises the API rate limit from 60 to 5000 requests/hour"></div>
   <div class="muted">The token stays in memory for this tab only and is never saved.</div>
-  <div class="actions"><button id="settingsExample" class="ghost" title="Restore the built-in example (storytold)">Use example</button><span style="flex:1"></span><button id="settingsCopy" title="Copy a link that opens this page with these settings">Copy link</button><button id="settingsCancel">Cancel</button><button id="settingsSave" class="primary">Save</button></div>
+  <div class="actions"><button id="settingsClear" class="ghost" title="Forget the stored catalog and HTTP cache">Clear cache</button><button id="settingsExample" class="ghost" title="Restore the built-in example (storytold)">Use example</button><span style="flex:1"></span><button id="settingsCopy" title="Copy a link that opens this page with these settings">Copy link</button><button id="settingsCancel">Cancel</button><button id="settingsSave" class="primary">Save</button></div>
 </dialog>
 
 <script>
