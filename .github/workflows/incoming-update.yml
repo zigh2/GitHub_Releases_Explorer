@@ -95,6 +95,8 @@ jobs:
         env:
           VERSION: ${{ steps.extract.outputs.version }}
           BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
@@ -106,13 +108,24 @@ jobs:
           fi
           git commit -q -m "chore: update project to v${VERSION} from incoming archive"
           git push origin "HEAD:${BRANCH}"
-          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
-            echo "::warning::Tag v${VERSION} already exists - bump VERSION to publish a new release."
-          else
-            git tag -a "v${VERSION}" -m "GitHub Releases Explorer v${VERSION}"
-            git push origin "v${VERSION}"
-            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          sha="$(git rev-parse HEAD)"
+          tag="v${VERSION}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "::warning title=Tag already exists::${tag} already exists - bump VERSION to publish a new release."
+            exit 0
           fi
+          # Create the tag through the API: unlike `git push`, it explains why a tag is refused (rulesets, permissions...).
+          for attempt in 1 2 3; do
+            if response="$(gh api "repos/${GH_REPO}/git/refs" -f "ref=refs/tags/${tag}" -f "sha=${sha}" 2>&1)"; then
+              echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+              echo "Created tag ${tag} at ${sha}"
+              exit 0
+            fi
+            echo "Attempt ${attempt} failed: ${response}"
+            sleep $((attempt * 3))
+          done
+          echo "::error title=Could not create tag ${tag}::${response//$'\n'/ } -- The new commit ${sha} is already on ${BRANCH}. Fix the cause above, then run Actions > Release with tag ${VERSION} and create_tag enabled."
+          exit 1
 
   release:
     name: Publish release
