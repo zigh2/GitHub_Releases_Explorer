@@ -52,7 +52,7 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=GitHub Pages is not set up::Nothing was deployed. Settings -> Pages -> Build and deployment -> Source: GitHub Actions, then re-run this workflow. (Current source: ${build_type:-Pages not enabled})"
           fi
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.pages.outputs.enabled == 'true'
         with:
           ref: ${{ inputs.ref || github.sha }}

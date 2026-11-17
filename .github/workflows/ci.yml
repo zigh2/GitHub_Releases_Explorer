@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         node: ["22", "24"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
@@ -35,7 +35,7 @@ jobs:
     name: UI tests (Playwright, headless Chromium)
     runs-on: ubuntu-24.04   # pinned: Playwright's browser dependencies are validated on this image
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
