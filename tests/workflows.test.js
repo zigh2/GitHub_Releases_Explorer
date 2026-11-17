@@ -80,6 +80,14 @@ test("the Pages workflow skips cleanly (notice, not an error) when Pages is not 
   }
 });
 
+test("incoming-update creates its tag through the API (clear error) and never pushes tags with git", () => {
+  if (!present) return;
+  const text = read("incoming-update.yml");
+  assert.match(text, /git\/refs/);
+  assert.ok(!/git push origin "v/.test(text), "tags must not be pushed with git push (rejections carry no reason)");
+  assert.match(text, /create_tag enabled/);
+});
+
 test("package.json test script does not rely on shell globs", () => {
   assert.ok(!/\*/.test(JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).scripts.test));
 });

@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) · versioning: [SemVer](https://semver.org/).
 
+## [3.1.4] - 2026-11-17
+
+### Fixed
+- **Incoming update: `! [remote rejected] v3.1.3 -> v3.1.3 (failed)`.** The commit reached `main` but `git push` of the tag was refused with no reason.
+  The tag is now created through the GitHub API (retried three times), which reports the exact cause, and an already-existing tag is a warning, not a failure.
+  If a tag can still not be created, the error says how to recover: run *Release* with the version and `create_tag` enabled.
+
 ## [3.1.3] - 2026-11-17
 
 ### Fixed
