@@ -2,6 +2,21 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) · versioning: [SemVer](https://semver.org/).
 
+## [3.1.2] - 2026-11-17
+
+### Fixed
+- **Release workflow failed when started manually with a tag typed without `v`** (`3.1.1`): checkout looked for a branch/tag literally named
+  `3.1.1`. The tag is now normalised (`3.1.1`, `v3.1.1` and `refs/tags/v3.1.1` all work), validated with a clear error that lists the existing
+  tags, and can be created from the selected branch with the new `create_tag` option.
+- The release now refuses to publish when `VERSION` does not match the tag.
+- Pages workflow moved to the Node 24 majors: `configure-pages@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5`.
+
+### Changed
+- **Script-injection hygiene**: no `${{ }}` expression is interpolated into a shell script any more; values travel through `env:`.
+- *Incoming update* copies files with `cp -a` instead of `rsync` (no dependency on the runner image, which is now Ubuntu 26.04).
+- `tests/workflows.test.js` guards all of this (no expressions in `run:`, no Node-20 actions, no end-of-life Node in CI, referenced files exist,
+  tag normalisation present, no shell globs in `npm test`). Every workflow script is also syntax-checked with `bash -n` before release.
+
 ## [3.1.1] - 2026-11-17
 
 ### Fixed

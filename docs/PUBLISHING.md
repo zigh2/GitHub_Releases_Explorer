@@ -20,5 +20,8 @@ Share ready-made views with links such as
 
 **Branch protection (optional)** - require the *CI* checks on `main`.
 
+**Releasing manually** - Actions → *Release* → *Run workflow*: type the tag (`3.1.2` or `v3.1.2` both work). If the tag does not exist yet,
+tick *create_tag* to create it from the selected branch. `VERSION` must equal the tag, otherwise the run stops with an explanation.
+
 **First release** - bump `VERSION` + `package.json`, update `CHANGELOG.md`, `node scripts/build.mjs`, then either push the tag
 `v3.0.0` or drop the project zip in `incoming/`. The *Release* workflow attaches `GitHubReleasesExplorer-3.0.0.html` and its SHA256.
