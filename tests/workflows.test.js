@@ -68,6 +68,18 @@ test("the release workflow validates its tag input", () => {
   assert.match(text, /VERSION must match the tag/);
 });
 
+test("the Pages workflow skips cleanly (notice, not an error) when Pages is not enabled", () => {
+  if (!present) return;
+  const text = read("pages.yml");
+  assert.match(text, /build_type/);
+  const steps = text.split(/\n(?=\s{6}- )/); // one chunk per step
+  for (const action of ["actions/checkout", "actions/configure-pages", "actions/upload-pages-artifact", "actions/deploy-pages"]) {
+    const step = steps.find((s) => s.includes(`uses: ${action}@`));
+    assert.ok(step, action + " step not found");
+    assert.ok(step.includes("if: steps.pages.outputs.enabled == 'true'"), action + " must be gated on the Pages check");
+  }
+});
+
 test("package.json test script does not rely on shell globs", () => {
   assert.ok(!/\*/.test(JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).scripts.test));
 });

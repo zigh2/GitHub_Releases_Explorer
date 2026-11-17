@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) · versioning: [SemVer](https://semver.org/).
 
+## [3.1.3] - 2026-11-17
+
+### Fixed
+- **Pages workflow failed with "Get Pages site failed"** when GitHub Pages was not enabled yet. It now checks the Pages settings first and, if the source
+  is not *GitHub Actions*, skips every deploy step and ends **green with a notice** that says exactly what to change. (The snapshot step was verified
+  against the real API: 1,039 assets from 39 repositories in 40 requests.)
+
 ## [3.1.2] - 2026-11-17
 
 ### Fixed

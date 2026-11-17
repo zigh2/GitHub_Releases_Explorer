@@ -12,7 +12,7 @@ Do this once after creating the repository - it is what makes the project look f
 
 **GitHub Pages (live demo + automatic data)** - Settings → Pages → Build and deployment → **Source: GitHub Actions**. The *Pages*
 workflow then publishes `index.html` and a fresh `catalog.json` (see `snapshot.config.json`) on every change, every 6 hours, and
-after each *Incoming update*. Run it once manually from the *Actions* tab (*Pages → Run workflow*) to get the first deployment.
+after each *Incoming update*. Until Pages is enabled the workflow finishes green with a notice and deploys nothing. Run it once manually from the *Actions* tab (*Pages → Run workflow*) to get the first deployment.
 Share ready-made views with links such as
 `https://<user>.github.io/<repo>/#source=storytold&filter=craft` (the page loads that data on open).
 
