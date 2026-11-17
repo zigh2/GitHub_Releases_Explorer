@@ -20,10 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node: ["20", "22"]
+        node: ["22", "24"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
       - name: Unit tests
@@ -33,13 +33,13 @@ jobs:
 
   e2e:
     name: UI tests (Playwright, headless Chromium)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: Playwright's browser dependencies are validated on this image
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
