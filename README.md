@@ -93,7 +93,7 @@ One-time setup is in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 ## Develop
 
 ```bash
-npm test                 # Node >= 18, no dependencies: logic, exports, snapshot
+npm test                 # Node >= 20, no dependencies: logic, exports, snapshot
 node scripts/build.mjs   # src/ -> index.html   (npm run check verifies it is current)
 pip install -r tests/e2e/requirements.txt && playwright install chromium
 python tests/e2e/run.py  # 12 browser tests against the built page (mocked GitHub API)

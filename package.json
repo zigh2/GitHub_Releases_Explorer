@@ -1,6 +1,6 @@
 {
   "name": "github-releases-explorer",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Single-file web app to browse, filter and export the release assets of any GitHub organization, user or repository.",
   "private": true,
   "license": "MIT",
@@ -8,11 +8,11 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
-    "test": "node --test \"tests/*.test.js\"",
+    "test": "node scripts/test.mjs",
     "e2e": "python tests/e2e/run.py",
     "snapshot": "node scripts/snapshot.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

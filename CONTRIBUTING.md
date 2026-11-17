@@ -1,6 +1,6 @@
 # Contributing
 
-No dependencies, no install step - just Node 18+ for the tests and the build.
+No dependencies, no install step - just Node 20+ for the tests and the build.
 
 ```bash
 npm test            # unit tests (fake GitHub API, exports, classification)

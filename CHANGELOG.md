@@ -2,6 +2,17 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/) · versioning: [SemVer](https://semver.org/).
 
+## [3.1.1] - 2026-11-17
+
+### Fixed
+- **CI failed on Node 20**: `node --test "tests/*.test.js"` relies on glob support that only exists from Node 21. Tests now run through
+  `scripts/test.mjs`, which passes explicit file names and works on every Node version.
+
+### Changed
+- CI matrix is now Node 22 and 24 (Node 20 reached end-of-life in April 2026); `engines` is `>=20`.
+- Workflows use `actions/checkout@v6`, `actions/setup-node@v6`, `actions/setup-python@v6` (Node 24 runtimes) - this removes the
+  "Node.js 20 is deprecated" warnings. The UI-test job is pinned to `ubuntu-24.04`.
+
 ## [3.1.0] - 2026-11-17
 
 ### Added
