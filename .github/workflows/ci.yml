@@ -30,3 +30,21 @@ jobs:
         run: npm test
       - name: index.html is up to date with src/
         run: npm run check
+
+  e2e:
+    name: UI tests (Playwright, headless Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/e2e/requirements.txt
+      - run: python -m pip install -r tests/e2e/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: End-to-end tests against the built index.html
+        run: python tests/e2e/run.py

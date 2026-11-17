@@ -115,3 +115,15 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.update.outputs.tag }}
+
+  pages:
+    name: Publish GitHub Pages
+    needs: update
+    if: needs.update.outputs.tag != ''
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.update.outputs.tag }}

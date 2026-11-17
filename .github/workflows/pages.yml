@@ -1,0 +1,61 @@
+name: Pages
+
+# Publishes index.html on GitHub Pages together with catalog.json - a snapshot of the catalog described in snapshot.config.json,
+# refreshed every 6 hours. Visitors get data instantly, without spending their own GitHub API quota.
+# One-time setup: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - snapshot.config.json
+      - scripts/snapshot.mjs
+      - src/core.js
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Tag or commit to publish"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the site (app + catalog snapshot)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+          node scripts/snapshot.mjs --out _site/catalog.json || echo "::warning::Snapshot failed - publishing the app without catalog.json"
+          ls -l _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
